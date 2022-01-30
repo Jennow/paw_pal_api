@@ -15,7 +15,10 @@ const Status = {
     ACTIVE: 1
 }
 
-router.post('/', (req, res) => {
+/**
+ * Add new Customer
+ */
+router.post('/', (req, res, next) => {
     let customerData      = req.body;
     customerData.password = crypto.createHash('md5')
                                   .update(process.env.PASSWORD_HASH + req.body.password)
@@ -29,11 +32,15 @@ router.post('/', (req, res) => {
         res.json(customer);
     })
     .catch(err => {
-        res.json({'message': err.message, 'error': err});
+        return next(err);
     });
 });
 
-router.post('/login', (req, res) => {
+/**
+ * Login Customer
+ * saves an accessToken and an expirydate to the customer
+ */
+router.post('/login', (req, res, next) => {
     let password = crypto.createHash('md5')
             .update(process.env.PASSWORD_HASH + req.body.password)
             .digest('hex');
@@ -44,7 +51,7 @@ router.post('/login', (req, res) => {
         password: password
     }, (err, customer) => {
         if (err) {
-            res.json(err);
+            next(err) 
             return;
         }
 
@@ -67,7 +74,7 @@ router.post('/login', (req, res) => {
                 setDefaultsOnInsert: true
             }, (err, result) => {
                 if (err) {
-                    res.json(err);
+                    next(err) 
                     return;
                 }
                 mongoose.disconnect();
@@ -77,31 +84,11 @@ router.post('/login', (req, res) => {
     });
 });
 
+/**
+ * Logout customer
+ * removes accessToken and expiryDate from customer
+ */
 router.post('/:token/logout', (req, res, next) => {
-    let token = req.params.token;
-    Customers.findOneAndUpdate(
-        {
-            accessToken: token,
-        },
-        {
-            accessToken: null,
-            sessionExpiryDate: null,
-        },{
-            upsert: false,
-            new: false,
-        }, (err) => {
-            if (err) {
-                next(err); return;
-            }
-            mongoose.disconnect();
-            res.json({success: true, message:'logged_out'}); return;
-        }
-    )
-    .clone()
-    .catch(next);
-});
-
-router.get('/:token/validate', (req, res, next) => {
     let token = req.params.token;
 
     Customers.findOne({
@@ -109,58 +96,194 @@ router.get('/:token/validate', (req, res, next) => {
     }, (err, customer) => {
         if (err) { next(err) }
 
-        if (customer === null) {
+        if (!customer) {
             next('invalid_session'); return;
         }
-        let now = new Date();
-        if (now > customer.sessionExpiryDate)
-        {
-            // Session Token und expired vom Customer entfernen
-            Customers.updateOne(
-                {
-                    id: customer.id
-                },
-                {
-                    accessToken: null,
-                    sessionExpiryDate: null,
-                },{
-                    upsert: true,
-                    new: true,
-                    setDefaultsOnInsert: true
-                }, (err, result) => {
-                    if (err) {
-                        next(err); return;
-                    }
-                    next('invalid_session'); return;
-                }
-            )
-            .clone()
-            .catch(next);
-        } else {a
-            mongoose.disconnect();
-            res.json(customer);
-        }
-    
+        clearSession(token, (err, result) => {
+            if (err) {
+                next(err); return;
+            }
+            res.json({success: true, message:'logged_out'}); return;
+        })
+        .catch(next);
     }).clone().catch(next);
+});
+
+/**
+ * Checks if the customer is still logged in 
+ * -> Token needs to be equal to the one of the customer
+ * -> session expiry date of the customer has to be in the future
+ * -> Else the customer session is cleared 
+ */
+router.get('/:token/validate', (req, res, next) => {
+    let token = req.params.token;
+    checkSession(token, () => {
+        res.json({'success': true, 'message': 'session_valid'});
+    }).catch(next);
 })
 
-router.route('/:customerId')
-    .get((req, res) => {
-        res.json({'foo': 'bar'});
-    })
-    .post((req, res) => {
-        res.json({'foo': 'bar'});
+/**
+ * Get List of customers
+ * -> Load customers in chunks
+ * -> Dont load customers that already have a match with current customer 
+ */
+ router.get('/:token/explore', (req, res, next) => {
 
+})
+
+
+router.route('/:customerId')
+/**
+ *  Get Customerprofile
+ *  Own profile is returned by passing authToken as customerId
+ *  If numeric id is passed -> only return public information
+ */
+    .get((req, res, next) => {
+        let customerId = req.params.customerId;
+        let where      = {
+            accessToken: customerId
+        }
+        let blackListColumns = {};
+
+        if (!isNaN(customerId)) {
+            where = {
+                id: customerId
+            }
+            blackListColumns = {
+                __v: false,
+                _id: false,
+                password: false,
+                accessToken: false,
+                sessionExpiryDate: false,
+            }
+        } else {
+            checkSession(customerId).catch(next);
+        }
+        Customers.findOne(where, blackListColumns, (err, customer) => {
+            if (err) return next(err);
+            if (!customer) {
+                return next('not_found')
+            }
+            res.json(customer);
+        });
     })
-    .patch((req, res) => {
-        res.json({'foo': 'bar'});
+    /**
+     * Edit customer profile
+     */
+    .patch((req, res, next) => {
+        let token = req.params.customerId;
+        checkSession(token).catch(next);
+        let patch = req.body;
+
+        Customers.updateOne(
+            {
+                accessToken: token
+            },
+            patch,
+            {
+                upsert: true,
+                new: true,
+            }, (err, result) => {
+                if (err) { return  next(err)}
+                res.json({success: true, message: 'updated_customer'});
+            }
+        );  
     })    
-    .delete((req, res) => {
-        res.json({'foo': 'bar'});
+    .delete((req, res, next) => {
+        let token = req.params.customerId;
+        checkSession(token).catch(next);
+
+        Customers.deleteOne(
+            {
+                accessToken: token
+            }, (err, result) => {
+                if (err) { return  next(err)}
+                res.json({success: true, message: 'deleted_customer'});
+            }
+        );  
     });
 
-module.exports = router;
 
-// TODO: add GET POST PATCH and DELETE Requests
-// -> Speziell bei GET -> wenn customerId -> weniger ausgeben als bei customerToken
-// -> Alle anderen: Nur mit gültigem CustomerToken aufrufbar 
+router.route('/:token/matches')
+    .post((req, res, next) => {
+        // Check if match with person already exists
+        // If exists -> Change status to "active" or "rejected" depending if customer klicked yes or no
+        // If not -> Create new match with status "waiting" or "rejected" dependng on the choice of the customer
+    })
+    .get((req, res, next) => {
+        // Get list of matches with status "active"
+    })
+    .patch((req, res, next) => {
+        // Only allowed to change match status
+    })
+
+router.route('/:token/messages/:matchId')
+    .post((req, res, next) => {
+        // Add message 
+        // sender    -> Customer of token
+        // recipient -> Other Customer of match (matchId)
+        // required: message text
+    })
+    .get((req, res, next) => {
+        // Get list of messages 
+        // Sort by date
+        // Add parameter depending on who sent the message or just use sentByCustomer in frontend
+    })
+
+/**
+ * Checks if session of customer token is still valid. If not -> Clears session and throws error
+ * @param {String} token 
+ * @param {Function} callback 
+ */
+async function checkSession(token, callback = null) {
+    Customers.findOne({
+        accessToken: token,
+    }, (err, customer) => {
+        if (err) throw err;
+        if (!customer) {
+            throw new Error('invalid_session');
+        }
+        let now = new Date();
+        if (now > customer.sessionExpiryDate) {
+            clearSession(token, (err, result) => {
+                if (err) throw err;
+                throw new Error('invalid_session');
+            })
+            .catch((err) => {
+                throw err;
+            });
+        } else {
+            
+            if (callback) {
+                callback();
+            }
+            return;
+        }
+    }).clone()
+}
+
+
+/**
+ * Clears session parameters from customer document
+ * @param {String} token 
+ * @param {Function} callback 
+ */
+async function clearSession(token, callback) {
+    Customers.updateOne(
+        {
+            accessToken: token
+        },
+        {
+            accessToken: null,
+            sessionExpiryDate: null,
+        },{
+            upsert: false,
+            new: false,
+        }, (err, result) => {
+            callback(err, result);
+        }
+    )
+    .clone()
+}
+
+module.exports = router;

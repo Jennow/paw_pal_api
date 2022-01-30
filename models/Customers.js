@@ -1,5 +1,6 @@
-const mongoose = require("mongoose");
-const Double   = require('@mongoosejs/double');
+const mongoose    = require("mongoose");
+const Double      = require('@mongoosejs/double');
+var AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const Schema     = mongoose.Schema;
 var CustomersSchema = new Schema({ 
@@ -35,6 +36,8 @@ var CustomersSchema = new Schema({
     accessToken: String,
     sessionExpiryDate: Date,
 });
+
+CustomersSchema.plugin(AutoIncrement, {id:'id_seq',inc_field: 'id'});
 
 var Customers = mongoose.model("Customers", CustomersSchema)
 

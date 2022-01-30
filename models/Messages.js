@@ -10,7 +10,6 @@ var MessagesSchema = new Schema({
     date: Date,
     message: String,
     sentByCustomer: ObjectId,
-    recipientCustomer: ObjectId,
 });
 
 var Messages = mongoose.model("Messages", MessagesSchema)

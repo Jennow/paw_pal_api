@@ -4,14 +4,10 @@ const cors      = require('cors')
 const cache     = require('memory-cache');
 const config    = require('./config');
 const customers = require('./routes/customers');
-const matches   = require('./routes/matches');
-const messages  = require('./routes/messages');
 
 var app         = express();
 app.use(express.json());
 app.use('/customers', customers);
-app.use('/matches', matches);
-app.use('/messages', messages);
 
 app.use((err, req, res, next) => {
   return res.status(500).send({ error: err });
