@@ -2,7 +2,7 @@ const mongoose    = require("mongoose");
 const Double      = require('@mongoosejs/double');
 var AutoIncrement = require('mongoose-sequence')(mongoose);
 
-const Schema     = mongoose.Schema;
+const Schema        = mongoose.Schema;
 var CustomersSchema = new Schema({ 
     id: Number,
     email: {

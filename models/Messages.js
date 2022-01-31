@@ -4,12 +4,20 @@ const { ObjectId } = require("bson");
 
 const Schema     = mongoose.Schema;
 var MessagesSchema = new Schema({ 
-    id: Number,
-    match: ObjectId,
+    match: {
+        type: ObjectId,
+        ref: 'Matches',
+    },
     status: Number,
     date: Date,
-    message: String,
-    sentByCustomer: ObjectId,
+    message: {
+        type: String,
+        required: true,
+    },
+    sentByCustomer: {
+        type: ObjectId,
+        ref: 'Customers',
+    },
 });
 
 var Messages = mongoose.model("Messages", MessagesSchema)
