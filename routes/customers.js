@@ -15,26 +15,6 @@ const SessionService = require("../services/session.service");
 connectDB("mongodb://127.0.0.1:27017/"+database)
 
 router.use(cors());
-/**
- * Add new Customer
- */
-router.post('/', (req, res, next) => {
-    let customerData      = req.body;
-    customerData.password = crypto.createHash('md5')
-                                  .update(process.env.PASSWORD_HASH + req.body.password)
-                                  .digest('hex')
-    
-    Customers.create(req.body).then((customer) => {
-        if (customer == {}) {
-            throw 'customer_already_exists'
-        }
-        mongoose.disconnect();
-        res.json(customer);
-    })
-    .catch(err => {
-        return next(err);
-    });
-});
 
 /**
  * Get List of customers
@@ -45,47 +25,84 @@ router.post('/', (req, res, next) => {
     // TODO !!!
 })
 
-router.route('/:customerId')
 /**
- *  Get Customerprofile
- *  Own profile is returned by passing authToken as customerId
+ *  Get own Customerprofile
  *  If numeric id is passed -> only return public information
  */
-    .get((req, res, next) => {
-        let customerId = req.params.customerId;
-        let where      = {
-            accessToken: customerId
-        }
-        let blackListColumns = {};
+router.get('/:customerId', (req, res, next) => {
+    let customerId = req.params.customerId;
 
-        if (!isNaN(customerId)) {
-            where = {
-                id: customerId
-            }
-            blackListColumns = {
-                __v: false,
-                password: false,
-                accessToken: false,
-                sessionExpiryDate: false,
-            }
-        } else {
-            SessionService.checkSession(customerId).catch(next);
+    console.log(customerId);
+    let where      = {
+        accessToken: customerId
+    }
+    let blackListColumns = {};
+
+    if (!isNaN(customerId)) {
+        where = {
+            id: customerId
         }
-        Customers.findOne(where, blackListColumns, (err, customer) => {
-            if (err) return next(err);
-            if (!customer) {
-                return next('not_found')
+        blackListColumns = {
+            __v: false,
+            password: false,
+            accessToken: false,
+            sessionExpiryDate: false,
+        }
+    } else {
+        try {
+            SessionService.checkSession(customerId).catch(next);
+        } catch(err) {
+            next(err);
+        }
+    }
+    Customers.findOne(where, blackListColumns, (err, customer) => {
+        if (err) return next(err);
+        if (!customer) {
+            return next('not_found')
+        }
+        res.json(customer);
+    });
+})
+
+router.route('/')
+    /**
+     * Add new Customer
+     */
+    .post((req, res, next) => {
+        let customerData      = req.body;
+        customerData.password = crypto.createHash('md5')
+                                    .update(process.env.PASSWORD_HASH + req.body.password)
+                                    .digest('hex')
+        
+        Customers.create(req.body).then((customer) => {
+            if (customer == {}) {
+                throw 'customer_already_exists'
             }
-            res.json(customer);
+            mongoose.disconnect();
+            res.json({success: true, message: 'added_customer'});
+        })
+        .catch(err => {
+            return next(err);
         });
     })
     /**
      * Edit customer profile
      */
     .patch((req, res, next) => {
-        let token = req.params.customerId;
-        SessionService.checkSession(token).catch(next);
-        let patch = req.body;
+        let token = req.body.accessToken;
+        try {
+            SessionService.checkSession(token).catch(next);
+        } catch(err) {
+            next(err);
+        }        let patch = req.body;
+
+        if (req.body.password) {
+            patch.password = crypto.createHash('md5')
+            .update(process.env.PASSWORD_HASH + req.body.password)
+            .digest('hex')
+        } else {
+            delete patch.password;
+        }
 
         Customers.updateOne(
             {
@@ -102,9 +119,12 @@ router.route('/:customerId')
         );  
     })    
     .delete((req, res, next) => {
-        let token = req.params.customerId;
-        SessionService.checkSession(token).catch(next);
-
+        let token = req.body.customerId;
+        try {
+            SessionService.checkSession(token).catch(next);
+        } catch(err) {
+            next(err);
+        }
         Customers.deleteOne(
             {
                 accessToken: token
