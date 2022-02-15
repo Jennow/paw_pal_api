@@ -23,6 +23,16 @@ router.use(cors());
  */
  router.get('/explore', (req, res, next) => {
     // TODO !!!
+    let customers = Customers.find({}, [
+        'id',
+        'title',
+        'description',
+        'profileImageUrl',
+        'characteristics',
+        'searchingFor'
+    ], (err, customers) => {
+        res.json(customers);
+    });
 })
 
 /**
@@ -75,14 +85,11 @@ router.route('/')
                                     .digest('hex')
         
         Customers.create(req.body).then((customer) => {
-            if (customer == {}) {
-                throw 'customer_already_exists'
-            }
-            mongoose.disconnect();
             res.json({success: true, message: 'added_customer'});
         })
         .catch(err => {
-            return next(err);
+            console.log(err);
+            next('customer_already_exists')
         });
     })
     /**
