@@ -11,8 +11,15 @@ const database  = "paw_pal"
 const Customers = require("../models/Customers");
 
 const SessionService = require("../services/session.service");
+const Matches = require('../models/Matches');
 
 connectDB("mongodb://127.0.0.1:27017/"+database)
+
+const MatchStatus = {
+    INACTIVE: 0,
+    WAITING: 1,
+    CONFIRMED: 2
+}
 
 router.use(cors());
 
@@ -21,17 +28,61 @@ router.use(cors());
  * -> Load customers in chunks
  * -> Dont load customers that already have a match with current customer 
  */
- router.get('/explore', (req, res, next) => {
-    // TODO !!!
-    let customers = Customers.find({}, [
-        'id',
-        'title',
-        'description',
-        'profileImageUrl',
-        'characteristics',
-        'searchingFor'
-    ], (err, customers) => {
-        res.json(customers);
+ router.get('/explore', async (req, res, next) => {
+    let token = SessionService.getBearerToken(req);    
+
+    SessionService.checkSession(token, async (customer) => {
+        console.log(customer._id)
+        Customers.find({
+            _id: {
+                $ne: customer._id,
+            }
+        }, [
+            '_id',
+            'id',
+            'title',
+            'description',
+            'profileImageUrl',
+            'characteristics',
+            'searchingFor',
+        ])
+        .populate({
+                path: 'matches',
+                select: '_id status',
+                match: 
+                {
+                    $or: [
+                    {
+                        actions: {
+                            customerId: customer._id,
+                            action: 1
+                        },
+                        status: MatchStatus.WAITING
+                    }, 
+                    {
+                        actions: {
+                            customerId: customer._id,
+                            action: 0
+                        },
+                        status: MatchStatus.WAITING
+                    }, 
+                    {
+                        status: MatchStatus.CONFIRMED
+                    }
+                    ]
+                }
+            }
+        )
+        .exec(function(err, customers) {
+            console.log(customers)
+            for (let i = customers.length - 1; i >= 0; i--) {
+                if (customers[i].matches.length > 0) {
+                    customers.splice(i, 1);
+                }
+            }
+            if (err) return  next(err)
+            return res.json(customers);
+        });
     });
 })
 

@@ -37,7 +37,6 @@ router.post('/token', (req, res, next) => {
         }
     }
 
-    console.log(filter);
     let now = new Date();
 
     Customers.findOne(filter, (err, customer) => {
@@ -81,7 +80,6 @@ router.post('/logout', (req, res, next) => {
         accessToken: token,
     }, (err, customer) => {
         if (err) { next(err) }
-
         if (!customer) {
             next('invalid_session'); return;
         }

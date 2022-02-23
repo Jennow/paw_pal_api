@@ -1,6 +1,7 @@
-const mongoose    = require("mongoose");
-const Double      = require('@mongoosejs/double');
-var AutoIncrement = require('mongoose-sequence')(mongoose);
+const mongoose     = require("mongoose");
+const Double       = require('@mongoosejs/double');
+var AutoIncrement  = require('mongoose-sequence')(mongoose);
+const { ObjectId } = require("bson");
 
 const Schema        = mongoose.Schema;
 var CustomersSchema = new Schema({ 
@@ -30,6 +31,12 @@ var CustomersSchema = new Schema({
         type: String,
         required: true,
     },
+    matches: [
+        { 
+            type: ObjectId,
+            ref: 'Matches',
+        }
+    ],
     searchingFor: [String],
     profileImageUrl: String,
     characteristics: [String],

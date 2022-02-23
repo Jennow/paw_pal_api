@@ -12,6 +12,7 @@ var MatchesSchema = new Schema({
     ],
     actions: [ 
         {
+            _id: false,
             customerId: ObjectId,
             action: Number
         }

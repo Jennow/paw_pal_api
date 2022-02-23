@@ -10,6 +10,7 @@ const Matches   = require("../models/Matches");
 const Messages  = require("../models/Messages");
 
 const SessionService = require("../services/session.service");
+const Customers = require('../models/Customers');
 
 connectDB("mongodb://127.0.0.1:27017/"+database)
 
@@ -33,12 +34,13 @@ router.use(cors());
 
 router.route('/')
     .post(async (req, res, next) => {
-        let token = req.body.accessToken;
+        let token = SessionService.getBearerToken(req);    
+
         let matchedCustomerObjectId = mongoose.Types.ObjectId(req.body.matchedCustomerObjectId);
         let action = req.body.action;
 
         if (!matchedCustomerObjectId) return next('matchedCustomerObjectId is required');
-        if (!action)return next('action is required');
+        if (action !== 1 && action !== 0)return next('action is required');
 
         await SessionService.checkSession(token, (customer) => {
             Matches.findOne({
@@ -106,25 +108,37 @@ router.route('/')
                         status: newStatus,
                         date: new Date()
                     }, (err, result) => {
+                        console.log(result);
                         if (err) return next(err)
-                        console.log(result)
-                        return res.json({success: true, messgae: 'match_created'})
+                        addMatchToCustomer(matchedCustomerObjectId, result._id)
+                        .then(() => {
+                            addMatchToCustomer(customer._id, result._id);
+                        })                       
+                        res.json({success: true, messgae: 'match_created'})
                     })
                 }
             })
         }).catch(next);
     })
     .get((req, res, next) => {
-        let token = req.body.accessToken;
+        let token = SessionService.getBearerToken(req);    
 
         SessionService.checkSession(token, (customer) => {
             Matches.find({
                 customers: customer._id,
-                // TODO: Only show confirmed matches in Matches List
                 // status: MatchStatus.CONFIRMED
                 // TODO: Also show profile image of other customer and last message
             })
-            .populate('customers', 'title profileImageUrl')
+            .populate({
+                path: 'customers',
+                select: 'title profileImageUrl',
+                match: {
+                    _id: {
+                        $ne: customer._id,
+                    }
+                }
+            }
+            )
             .exec(function(err, matches) {
                 if (err) return  next(err)
                 return res.json(matches);
@@ -133,13 +147,22 @@ router.route('/')
         .catch(next);
     })
 
+    async function addMatchToCustomer(customerId, match) {
+        return Customers.findByIdAndUpdate(
+            customerId,
+            { $push: { matches: match._id } },
+            { new: true, useFindAndModify: false }
+        );
+    };
+
+
 router.route('/:matchId/messages')
     /**
      * Send message to a specific match
      */
     .post((req, res, next) => {
         let matchId = req.params.matchId;
-        let token   = req.body.accessToken;
+        let token   = SessionService.getBearerToken(req);    
         let message = req.body.message;
 
         if (!message)return next('message is required');
@@ -147,7 +170,7 @@ router.route('/:matchId/messages')
         SessionService.checkSession(token, (customer) => {
             Messages.create({
                 message: message,
-                matchId: mongoose.Types.ObjectId(matchId),
+                match: mongoose.Types.ObjectId(matchId),
                 status: Status.ACTIVE,
                 date: new Date(),
                 sentByCustomer: customer._id
@@ -162,13 +185,13 @@ router.route('/:matchId/messages')
      */
     .get((req, res, next) => {
         let matchId = req.params.matchId;
-        let token   = req.params.token;
+        let token   = SessionService.getBearerToken(req);    
         SessionService.checkSession(token, (customer) => {
             Messages.find({
-                matchId: mongoose.Types.ObjectId(matchId),
+                match: mongoose.Types.ObjectId(matchId),
                 status: Status.ACTIVE,
             })
-            .sort([['date', -1]])
+            .sort([['date', 1]])
             .exec((err, response) => {
                 if (err) return  next(err)
                 return res.json({response});
