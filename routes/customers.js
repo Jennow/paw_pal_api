@@ -67,6 +67,7 @@ router.use(cors());
                         status: MatchStatus.WAITING
                     }, 
                     {
+                        "actions.customerId": customer._id,
                         status: MatchStatus.CONFIRMED
                     }
                     ]
@@ -74,7 +75,6 @@ router.use(cors());
             }
         )
         .exec(function(err, customers) {
-            console.log(customers)
             for (let i = customers.length - 1; i >= 0; i--) {
                 if (customers[i].matches.length > 0) {
                     customers.splice(i, 1);
