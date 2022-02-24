@@ -101,9 +101,9 @@ router.post('/logout', (req, res, next) => {
  */
 router.get('/:token/validate', (req, res, next) => {
     let token = req.params.token;
-    SessionService.checkSession(token, () => {
+    SessionService.checkSession(token, next, () => {
         res.json({'success': true, 'message': 'session_valid'});
-    }).catch(next);
+    })
 })
 
 module.exports = router;

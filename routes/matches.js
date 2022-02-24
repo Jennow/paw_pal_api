@@ -42,7 +42,7 @@ router.route('/')
         if (!matchedCustomerObjectId) return next('matchedCustomerObjectId is required');
         if (action !== 1 && action !== 0)return next('action is required');
 
-        await SessionService.checkSession(token, (customer) => {
+        await SessionService.checkSession(token, next, (customer) => {
             Matches.findOne({
                 "customers": { 
                     $all:  [customer._id, matchedCustomerObjectId]
@@ -118,16 +118,15 @@ router.route('/')
                     })
                 }
             })
-        }).catch(next);
+        })
     })
     .get((req, res, next) => {
         let token = SessionService.getBearerToken(req);    
 
-        SessionService.checkSession(token, (customer) => {
+        SessionService.checkSession(token, next, (customer) => {
             Matches.find({
                 customers: customer._id,
-                // status: MatchStatus.CONFIRMED
-                // TODO: Also show profile image of other customer and last message
+                status: MatchStatus.CONFIRMED
             })
             .populate({
                 path: 'customers',
@@ -144,7 +143,6 @@ router.route('/')
                 return res.json(matches);
             });
         })
-        .catch(next);
     })
 
     async function addMatchToCustomer(customerId, match) {
@@ -167,7 +165,7 @@ router.route('/:matchId/messages')
 
         if (!message)return next('message is required');
 
-        SessionService.checkSession(token, (customer) => {
+        SessionService.checkSession(token, next, (customer) => {
             Messages.create({
                 message: message,
                 match: mongoose.Types.ObjectId(matchId),
@@ -178,7 +176,7 @@ router.route('/:matchId/messages')
                 if (err) return  next(err)
                 return res.json({success: true, message: 'message_sent'});
             });
-        }).catch(next);
+        })
     })
     /**
      * Get messages for a selected match
@@ -186,7 +184,7 @@ router.route('/:matchId/messages')
     .get((req, res, next) => {
         let matchId = req.params.matchId;
         let token   = SessionService.getBearerToken(req);    
-        SessionService.checkSession(token, (customer) => {
+        SessionService.checkSession(token, next, (customer) => {
             Messages.find({
                 match: mongoose.Types.ObjectId(matchId),
                 status: Status.ACTIVE,
@@ -196,7 +194,7 @@ router.route('/:matchId/messages')
                 if (err) return  next(err)
                 return res.json({response});
             });
-        }).catch(next);
+        })
     })
 
 module.exports = router;

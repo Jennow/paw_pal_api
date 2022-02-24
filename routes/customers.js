@@ -31,7 +31,7 @@ router.use(cors());
  router.get('/explore', async (req, res, next) => {
     let token = SessionService.getBearerToken(req);    
 
-    SessionService.checkSession(token, async (customer) => {
+    SessionService.checkSession(token, next, async (customer) => {
         console.log(customer._id)
         Customers.find({
             _id: {
@@ -110,11 +110,7 @@ router.get('/:customerId', (req, res, next) => {
             sessionExpiryDate: false,
         }
     } else {
-        try {
-            SessionService.checkSession(customerId).catch(next);
-        } catch(err) {
-            next(err);
-        }
+        SessionService.checkSession(customerId, next);
     }
     Customers.findOne(where, blackListColumns, (err, customer) => {
         if (err) return next(err);
@@ -148,11 +144,9 @@ router.route('/')
      */
     .patch((req, res, next) => {
         let token = req.body.accessToken;
-        try {
-            SessionService.checkSession(token).catch(next);
-        } catch(err) {
-            next(err);
-        }        let patch = req.body;
+
+        SessionService.checkSession(token, next)
+        let patch = req.body;
 
         if (req.body.password) {
             patch.password = crypto.createHash('md5')
@@ -178,11 +172,8 @@ router.route('/')
     })    
     .delete((req, res, next) => {
         let token = req.body.customerId;
-        try {
-            SessionService.checkSession(token).catch(next);
-        } catch(err) {
-            next(err);
-        }
+        SessionService.checkSession(token, next)
+
         Customers.deleteOne(
             {
                 accessToken: token
