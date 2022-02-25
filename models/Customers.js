@@ -37,6 +37,7 @@ var CustomersSchema = new Schema({
             ref: 'Matches',
         }
     ],
+    deviceTokens: [String],
     searchingFor: [String],
     profileImageUrl: String,
     characteristics: [String],

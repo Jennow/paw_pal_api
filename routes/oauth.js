@@ -37,13 +37,25 @@ router.post('/token', (req, res, next) => {
         }
     }
 
+    let deviceToken = req.body.deviceToken;
     let now = new Date();
 
-    Customers.findOne(filter, (err, customer) => {
-        
+    Customers.findOne(filter, (err, customer) => {        
         if (err) return next(err) 
         if (!customer) return next({'message': 'customer_not_found', status: 401});
     
+        console.log(customer);
+        console.log(deviceToken);
+        const deviceTokens = customer.deviceTokens ? customer.deviceTokens : [];
+        
+        if (deviceToken) {
+            index = deviceTokens.indexOf(deviceToken);
+            console.log(index);
+            if (index === -1) {
+                deviceTokens.push(deviceToken.token);
+            }
+        }
+
         let accessToken = crypto.createHash('md5')
             .update(now.getTime() + process.env.SESSION_TOKEN_HASH + customer.id)
             .digest('hex');
@@ -57,6 +69,7 @@ router.post('/token', (req, res, next) => {
             {
                 accessToken: accessToken,
                 sessionExpiryDate: sessionExpiryDate,
+                deviceTokens: deviceTokens
             },{
                 upsert: true,
                 new: true,
@@ -74,20 +87,43 @@ router.post('/token', (req, res, next) => {
  * removes accessToken and expiryDate from customer
  */
 router.post('/logout', (req, res, next) => {
-    let token = req.body.token;
+    let token       = req.body.token;
+    let deviceToken = req.body.deviceToken
 
     Customers.findOne({
         accessToken: token,
     }, (err, customer) => {
+        console.log(customer);
         if (err) { next(err) }
         if (!customer) {
-            next('invalid_session'); return;
+            return next('invalid_session');
         }
-        SessionService.clearSession(token, (err, result) => {
+
+        SessionService.clearSession(token, (err, result) => {   
             if (err) {
-                next(err); return;
+               return next(err);
             }
-            res.json({success: true, message:'logged_out'}); return;
+
+            const deviceTokens = customer.deviceTokens ? customer.deviceTokens : [];
+            if (deviceToken) {
+                index = deviceTokens.indexOf(deviceToken);
+                if (index !== -1) {
+                    deviceTokens.splice(index, 1);
+                }
+            }
+
+            Customers.updateOne({'_id': customer._id}, {
+                deviceTokens: deviceTokens,
+                accessToken: '',
+                sessionExpiryDate: null,
+            }, (err, response) => {
+
+                console.log(response)
+                if (err) {
+                    return next(err);
+                }
+                return res.json({success: true, message:'logged_out'}); return;
+            })
         })
         .catch(next);
     }).clone().catch(next);

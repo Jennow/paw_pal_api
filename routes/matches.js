@@ -8,6 +8,10 @@ const mongoose  = require('mongoose');
 const database  = "paw_pal"
 const Matches   = require("../models/Matches");
 const Messages  = require("../models/Messages");
+var FCM         = require('fcm-node');
+var serverKey   = process.env.FCM_SERVER_KEY;
+var fcm         = new FCM(serverKey);
+
 
 const SessionService = require("../services/session.service");
 const Customers = require('../models/Customers');
@@ -84,7 +88,26 @@ router.route('/')
                         }, (err, result) => {
                             if (err) return next(err)
                             if (!result) return next ('match_not_found')
-                            return res.json({success: true, messgae: 'match_updated'})
+
+                            let matchedCustomerDeviceToken = process.env.FCM_TEST_DEVICE_TOKEN; // TODO: Use Device token of Profile
+                            let message = {
+                                to: matchedCustomerDeviceToken,
+                                notification: {
+                                    title: 'Match bestätigt',
+                                    body: 'Jemand hat dein Match bestätigt. Ihr könnt euch jetzt Nachrichten schreiben!'
+                                },
+                                // data: { //you can send only notification or only data(or include both)
+                                //     title: 'ok cdfsdsdfsd',
+                                //     body: '{"name" : "okg ooggle ogrlrl","product_id" : "123","final_price" : "0.00035"}'
+                                // }
+                            };
+
+                            fcm.send(message, (err, response) => {
+                                if (err) {
+                                   return next(err);
+                                } 
+                                return res.json({success: true, messgae: 'match_updated'})
+                            })
                         })
                 } else {
             // If not -> Create new match with status "waiting" or "rejected" dependng on the choice of the customer
@@ -174,7 +197,23 @@ router.route('/:matchId/messages')
                 sentByCustomer: customer._id
             }, (err, response) => {
                 if (err) return  next(err)
-                return res.json({success: true, message: 'message_sent'});
+
+                let matchedCustomerDeviceToken = process.env.FCM_TEST_DEVICE_TOKEN; // TODO: Use device token of customer
+                let message = {
+                    to: matchedCustomerDeviceToken,
+                    notification: {
+                        title: 'Neue Nachricht',
+                        body: 'Jemand hat dir eine Nachricht geschrieben'
+                    },
+                };
+
+                fcm.send(message, (err, response) => {
+                    if (err) {
+                        return next(err);
+                    } 
+                    return res.json({success: true, message: 'message_sent'});
+                })
+
             });
         })
     })
