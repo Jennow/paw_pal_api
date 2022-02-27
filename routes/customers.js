@@ -12,7 +12,9 @@ const Customers = require("../models/Customers");
 
 const SessionService = require("../services/session.service");
 const Matches = require('../models/Matches');
+const { ObjectId } = require('mongodb');
 
+const defaultLimit = 10;
 connectDB("mongodb://127.0.0.1:27017/"+database)
 
 const MatchStatus = {
@@ -29,15 +31,30 @@ router.use(cors());
  * -> Dont load customers that already have a match with current customer 
  */
  router.get('/explore', async (req, res, next) => {
-    let token = SessionService.getBearerToken(req);    
+    let token   = SessionService.getBearerToken(req);    
+    let lastId  = req.query.last_id;
+    let limit   = req.query.limit;
+    let options = {};
+
+    if (limit) {
+        options.limit = limit
+    } else {
+        options.limit = defaultLimit;
+    }
 
     SessionService.checkSession(token, next, async (customer) => {
-        console.log(customer._id)
-        Customers.find({
+        let where = {
             _id: {
                 $ne: customer._id,
             }
-        }, [
+        }
+        
+        if (lastId) {
+            where.id = {$gt: parseInt(lastId)}
+        }
+        
+        Customers.find(where, 
+        [
             '_id',
             'id',
             'title',
@@ -45,7 +62,7 @@ router.use(cors());
             'profileImageUrl',
             'characteristics',
             'searchingFor',
-        ])
+        ], options)
         .populate({
                 path: 'matches',
                 select: '_id status customers actions',
@@ -60,10 +77,11 @@ router.use(cors());
                         status: MatchStatus.WAITING
                     }, 
                     {
+                        customers: customer._id,
                         status: MatchStatus.INACTIVE
                     }, 
                     {
-                        "actions.customerId": customer._id,
+                        customers: customer._id,
                         status: MatchStatus.CONFIRMED
                     }
                     ]
