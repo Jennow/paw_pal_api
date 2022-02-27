@@ -48,7 +48,7 @@ router.use(cors());
         ])
         .populate({
                 path: 'matches',
-                select: '_id status',
+                select: '_id status customers actions',
                 match: 
                 {
                     $or: [
@@ -60,11 +60,7 @@ router.use(cors());
                         status: MatchStatus.WAITING
                     }, 
                     {
-                        actions: {
-                            customerId: customer._id,
-                            action: 0
-                        },
-                        status: MatchStatus.WAITING
+                        status: MatchStatus.INACTIVE
                     }, 
                     {
                         "actions.customerId": customer._id,
