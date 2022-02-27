@@ -19,8 +19,7 @@ router.use(cors());
  * saves an accessToken and an expirydate to the customer
  * if refreshToken is passed -> Find customer with token and refresh session
  */
-router.post('/token', (req, res, next) => {
-
+router.post('/token', (req, res, next) => {    
     var filter;
     if (req.body.refreshToken) {
         filter = {
@@ -43,14 +42,10 @@ router.post('/token', (req, res, next) => {
     Customers.findOne(filter, (err, customer) => {        
         if (err) return next(err) 
         if (!customer) return next({'message': 'customer_not_found', status: 401});
-    
-        console.log(customer);
-        console.log(deviceToken);
         const deviceTokens = customer.deviceTokens ? customer.deviceTokens : [];
         
         if (deviceToken) {
             index = deviceTokens.indexOf(deviceToken);
-            console.log(index);
             if (index === -1) {
                 deviceTokens.push(deviceToken.token);
             }
@@ -69,7 +64,8 @@ router.post('/token', (req, res, next) => {
             {
                 accessToken: accessToken,
                 sessionExpiryDate: sessionExpiryDate,
-                deviceTokens: deviceTokens
+                deviceTokens: deviceTokens,
+                location: req.body.location
             },{
                 upsert: true,
                 new: true,

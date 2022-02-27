@@ -13,6 +13,7 @@ const Customers = require("../models/Customers");
 const SessionService = require("../services/session.service");
 const Matches = require('../models/Matches');
 const { ObjectId } = require('mongodb');
+const Double       = require('@mongoosejs/double');
 
 const defaultLimit = 10;
 connectDB("mongodb://127.0.0.1:27017/"+database)
@@ -48,6 +49,20 @@ router.use(cors());
                 $ne: customer._id,
             }
         }
+
+        // TODO: Location Filter doesnt find any customers
+        // if (customer.location) {
+        //     where.location = {
+        //         lat: {
+        //             $gte: customer.location.lat - 0.1,
+        //             $lte: customer.location.lat + 0.1,
+        //         },
+        //         lng: { // TODO: Bisher sind das nur grobe Annäherungen
+        //             $gte: customer.location.lng - 0.1,
+        //             $lte: customer.location.lng + 0.1,
+        //         }
+        //     }
+        // }
         
         if (lastId) {
             where.id = {$gt: parseInt(lastId)}
@@ -62,6 +77,7 @@ router.use(cors());
             'profileImageUrl',
             'characteristics',
             'searchingFor',
+            'location'
         ], options)
         .populate({
                 path: 'matches',
@@ -89,6 +105,7 @@ router.use(cors());
             }
         )
         .exec(function(err, customers) {
+            console.log(customers);
             for (let i = customers.length - 1; i >= 0; i--) {
                 if (customers[i].matches.length > 0) {
                     customers.splice(i, 1);
