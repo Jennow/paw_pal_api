@@ -89,25 +89,28 @@ router.route('/')
                             if (err) return next(err)
                             if (!result) return next ('match_not_found')
 
-                            let matchedCustomerDeviceToken = process.env.FCM_TEST_DEVICE_TOKEN; // TODO: Use Device token of Profile
-                            let message = {
-                                to: matchedCustomerDeviceToken,
-                                notification: {
-                                    title: 'Match bestätigt',
-                                    body: 'Jemand hat dein Match bestätigt. Ihr könnt euch jetzt Nachrichten schreiben!'
-                                },
-                                // data: { //you can send only notification or only data(or include both)
-                                //     title: 'ok cdfsdsdfsd',
-                                //     body: '{"name" : "okg ooggle ogrlrl","product_id" : "123","final_price" : "0.00035"}'
-                                // }
-                            };
+                            if (newStatus === MatchStatus.CONFIRMED) {
+                                customer.deviceTokens.forEach(deviceToken => {
+                                    let matchedCustomerDeviceToken = deviceToken; 
+                                    let message = {
+                                        to: matchedCustomerDeviceToken,
+                                        notification: {
+                                            title: 'Match bestätigt',
+                                            body: 'Jemand hat dein Match bestätigt. Ihr könnt euch jetzt Nachrichten schreiben!'
+                                        },
+                                    };
+        
+                                    fcm.send(message, (err, response) => {
+                                        if (err) {
+                                        return next(err);
+                                        } 
+                                    })
+                                });
+                                return res.json({success: true, message: 'match_confirmed'})
 
-                            fcm.send(message, (err, response) => {
-                                if (err) {
-                                   return next(err);
-                                } 
-                                return res.json({success: true, messgae: 'match_updated'})
-                            })
+                            } else {
+                                return res.json({success: true, message: 'match_updated'})
+                            }
                         })
                 } else {
             // If not -> Create new match with status "waiting" or "rejected" dependng on the choice of the customer

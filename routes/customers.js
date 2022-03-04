@@ -50,19 +50,10 @@ router.use(cors());
             }
         }
 
-        // TODO: Location Filter doesnt find any customers
-        // if (customer.location) {
-        //     where.location = {
-        //         lat: {
-        //             $gte: customer.location.lat - 0.1,
-        //             $lte: customer.location.lat + 0.1,
-        //         },
-        //         lng: { // TODO: Bisher sind das nur grobe Annäherungen
-        //             $gte: customer.location.lng - 0.1,
-        //             $lte: customer.location.lng + 0.1,
-        //         }
-        //     }
-        // }
+        // If customer allows location -> Only show other customers that allow location and are closer than 10km
+        if (customer.location) {
+            where.location = { $near:{ $geometry: customer.location, $maxDistance: 10000 }};
+        }
         
         if (lastId) {
             where.id = {$gt: parseInt(lastId)}
@@ -105,7 +96,7 @@ router.use(cors());
             }
         )
         .exec(function(err, customers) {
-            console.log(customers);
+            if (err) return next(err);
             for (let i = customers.length - 1; i >= 0; i--) {
                 if (customers[i].matches.length > 0) {
                     customers.splice(i, 1);

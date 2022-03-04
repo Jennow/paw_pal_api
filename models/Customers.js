@@ -4,6 +4,11 @@ var AutoIncrement  = require('mongoose-sequence')(mongoose);
 const { ObjectId } = require("bson");
 
 const Schema        = mongoose.Schema;
+
+
+/**
+ * For location to work, a 2dsphere index needs to be created in the mongodb
+ */
 var CustomersSchema = new Schema({ 
     id: Number,
     email: {
@@ -24,8 +29,15 @@ var CustomersSchema = new Schema({
         required: true,
     },
     location: {
-        lat: Double,
-        lng: Double
+        type: {
+            type: String,
+            enum: ['Point'],
+            required: false
+        },
+        coordinates: {
+            type: [Number],
+            required: false
+        }
     },
     description: {
         type: String,
@@ -46,7 +58,7 @@ var CustomersSchema = new Schema({
 });
 
 CustomersSchema.plugin(AutoIncrement, {id:'id_seq',inc_field: 'id'});
+CustomersSchema.index({ location : "2dsphere" });
 
-var Customers = mongoose.model("Customers", CustomersSchema)
-
+var Customers  = mongoose.model("Customers", CustomersSchema)
 module.exports = Customers; 

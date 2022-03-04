@@ -65,7 +65,7 @@ router.post('/token', (req, res, next) => {
                 accessToken: accessToken,
                 sessionExpiryDate: sessionExpiryDate,
                 deviceTokens: deviceTokens,
-                location: req.body.location
+                location: { type: "Point", coordinates: [req.body.location.lng, req.body.location.lat] }
             },{
                 upsert: true,
                 new: true,
