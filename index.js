@@ -43,6 +43,7 @@ app.use('/matches', matches);
 
 // Send errors as Code 500 and generalized JSON object
 app.use((err, req, res, next) => {
+    console.log(err);
     if (err.status) {
         return res.status(err.status).send({ error: err });
     }
