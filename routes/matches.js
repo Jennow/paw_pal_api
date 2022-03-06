@@ -1,7 +1,7 @@
 const express = require('express');
 let router    = express.Router();
 
-const { postMatch, getMatches, getMessages } = require('../controller/matches');
+const { postMatch, getMatches, getMessages, postMessage } = require('../controller/matches');
 
 router.route('/')
     .post(postMatch)
