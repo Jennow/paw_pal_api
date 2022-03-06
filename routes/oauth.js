@@ -1,18 +1,9 @@
-require('dotenv').config()
-const cors      = require('cors')
-
 const express = require('express');
 let router    = express.Router();
 const crypto  = require('crypto')
 
-const connectDB = require("../models/db");
-const database  = "paw_pal"
-const Customers = require("../models/Customers");
+const Customers      = require("../models/Customers");
 const SessionService = require("../services/session.service");
-
-connectDB("mongodb://127.0.0.1:27017/"+database)
-
-router.use(cors());
 
 /**
  * Login Customer
@@ -20,23 +11,25 @@ router.use(cors());
  * if refreshToken is passed -> Find customer with token and refresh session
  */
 router.post('/token', (req, res, next) => {    
+    const { refreshToken, email, location, deviceToken } = req.body;
+    let { password }                        = req.body;
     var filter;
+
     if (req.body.refreshToken) {
         filter = {
-            accessToken: req.body.refreshToken
+            accessToken: refreshToken
         }
     } else {
-        let password = crypto.createHash('md5')
-        .update(process.env.PASSWORD_HASH + req.body.password)
+        password = crypto.createHash('md5')
+        .update(process.env.PASSWORD_HASH + password)
         .digest('hex');
 
         filter = {
-            email: req.body.email,
+            email: email,
             password: password
         }
     }
 
-    let deviceToken = req.body.deviceToken;
     let now = new Date();
 
     Customers.findOne(filter, (err, customer) => {        
@@ -57,16 +50,22 @@ router.post('/token', (req, res, next) => {
 
         let sessionExpiryDate = new Date(now.getTime() + process.env.SESSION_TTL*1000);
    
+        let updateObject = {
+            accessToken: accessToken,
+            sessionExpiryDate: sessionExpiryDate,
+            deviceTokens: deviceTokens,
+        };
+
+        if (location) {
+            updateObject.location = { type: "Point", coordinates: [location.lng, location.lat] }
+        }
+
         Customers.findOneAndUpdate(
             {
                 id: customer.id
-            },
+            }, 
+            updateObject,
             {
-                accessToken: accessToken,
-                sessionExpiryDate: sessionExpiryDate,
-                deviceTokens: deviceTokens,
-                location: { type: "Point", coordinates: [req.body.location.lng, req.body.location.lat] }
-            },{
                 upsert: true,
                 new: true,
                 setDefaultsOnInsert: true
@@ -83,23 +82,19 @@ router.post('/token', (req, res, next) => {
  * removes accessToken and expiryDate from customer
  */
 router.post('/logout', (req, res, next) => {
-    let token       = req.body.token;
-    let deviceToken = req.body.deviceToken
+    const { token, deviceToken } = req.body;
 
     Customers.findOne({
         accessToken: token,
     }, (err, customer) => {
-        console.log(customer);
         if (err) { next(err) }
         if (!customer) {
             return next('invalid_session');
         }
 
         SessionService.clearSession(token, (err, result) => {   
-            if (err) {
-               return next(err);
-            }
-
+            if (err) return next(err);
+            
             const deviceTokens = customer.deviceTokens ? customer.deviceTokens : [];
             if (deviceToken) {
                 index = deviceTokens.indexOf(deviceToken);
@@ -113,8 +108,6 @@ router.post('/logout', (req, res, next) => {
                 accessToken: '',
                 sessionExpiryDate: null,
             }, (err, response) => {
-
-                console.log(response)
                 if (err) {
                     return next(err);
                 }
@@ -132,7 +125,7 @@ router.post('/logout', (req, res, next) => {
  * -> Else the customer session is cleared 
  */
 router.get('/:token/validate', (req, res, next) => {
-    let token = req.params.token;
+    const { token } = req.params;
     SessionService.checkSession(token, next, () => {
         res.json({'success': true, 'message': 'session_valid'});
     })

@@ -1,4 +1,7 @@
 const PORT      = 8002;
+
+require('dotenv').config();
+
 const express   = require('express');
 const cors      = require('cors')
 const cache     = require('memory-cache');
@@ -7,12 +10,38 @@ const customers = require('./routes/customers');
 const oauth     = require('./routes/oauth');
 const matches   = require('./routes/matches');
 
+const connectDB = require("./models/db");
+const database  = "paw_pal"
+connectDB("mongodb://127.0.0.1:27017/"+database)
+
 var app         = express();
+
+// Global standard middlewares
 app.use(express.json());
-app.use('/customers', customers);
+app.use(cors())
+
+// Custom Middlewares
+const bearerTokenAuth = require('./middleware/auth');
+const ignoreAuth = (req, res, next) => {
+    req.ignoreAuth = true;
+    next();
+}
+
+// Use auth middleware for customers and matches 
+// Only Exception -> POST customers
+app.post('/customers', ignoreAuth);
+
+app.use('/customers', bearerTokenAuth);
+app.use('/matches', bearerTokenAuth);
+
+// Use router controllers
 app.use('/oauth', oauth);
+app.use('/customers', customers);
 app.use('/matches', matches);
 
+
+
+// Send errors as Code 500 and generalized JSON object
 app.use((err, req, res, next) => {
     if (err.status) {
         return res.status(err.status).send({ error: err });

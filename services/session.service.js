@@ -56,7 +56,11 @@ const SessionService = {
         .clone()
     },
     getBearerToken(req) {
-        return req.get('authorization').replace('Bearer ', '');
+        let auth = req.get('authorization');
+        if (!auth) {
+            return;
+        }
+        return auth.replace('Bearer ', '');
     }
 }
 
