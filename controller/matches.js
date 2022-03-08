@@ -1,6 +1,8 @@
 const Matches   = require("../models/Matches");
 const Messages  = require("../models/Messages");
 const Customers = require('../models/Customers');
+const mongoose  = require('mongoose');
+const { validationResult } = require('express-validator');
 
 // Firebase 
 var FCM         = require('fcm-node');
@@ -31,11 +33,21 @@ const MatchActionType = {
  * @returns 
  */
 const postMatch = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
     const { customer }            = req;
     const { action }              = req.body;
     const matchedCustomerObjectId = mongoose.Types.ObjectId(req.body.matchedCustomerObjectId);
 
-    if (!matchedCustomerObjectId) return next('matchedCustomerObjectId is required');
+    if (!matchedCustomerObjectId) return next(
+        {
+            code:    400,
+            message: 'matchedCustomerObjectId is required'
+        }
+    );
     if (action !== 1 && action !== 0)return next('action is required');
 
     Matches.findOne({
@@ -80,7 +92,7 @@ const postMatch = (req, res, next) => {
                     actions: updatedMatchActions,
                 }, (err, result) => {
                     if (err) return next(err)
-                    if (!result) return next ('match_not_found')
+                    if (!result) return next({'message': 'not_found', status: 404});
 
                     if (newStatus === MatchStatus.CONFIRMED) {
                         customer.deviceTokens.forEach(deviceToken => {
@@ -183,11 +195,14 @@ async function addMatchToCustomer(customerId, match) {
  * @returns 
  */
 const postMessage = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
     const { customer } = req;
     const { matchId }  = req.params;
     const { message }  = req.body;
-
-    if (!message) return next('message is required');
 
     Messages.create({
         message: message,
@@ -209,10 +224,11 @@ const postMessage = (req, res, next) => {
 
             fcm.send(message, (err, response) => {
                 if (err) {
-                return next(err);
+                    return next(err);
                 } 
             })
         });
+        return res.json({success: true, message: 'message_sent'})
     });
 }
 
@@ -231,7 +247,7 @@ const getMessages = (req, res, next) => {
     .sort([['date', 1]])
     .exec((err, response) => {
         if (err) return  next(err)
-        return res.json({response});
+        return res.json(response);
     });
 }
 

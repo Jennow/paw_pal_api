@@ -2,6 +2,7 @@ const crypto  = require('crypto')
 
 const Customers      = require("../models/Customers");
 const SessionService = require("../services/session.service");
+const { validationResult } = require('express-validator');
 
 /**
  * Login Customer
@@ -12,6 +13,11 @@ const SessionService = require("../services/session.service");
  * @param {*} next 
  */
 const login = (req, res, next) => {    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
     const { refreshToken, email, location, deviceToken } = req.body;
     let { password }                        = req.body;
     var filter;
@@ -35,7 +41,7 @@ const login = (req, res, next) => {
 
     Customers.findOne(filter, (err, customer) => {        
         if (err) return next(err) 
-        if (!customer) return next({'message': 'customer_not_found', status: 401});
+        if (!customer) return next({'message': 'customer_not_found', status: 404});
         const deviceTokens = customer.deviceTokens ? customer.deviceTokens : [];
         
         if (deviceToken) {
@@ -86,6 +92,11 @@ const login = (req, res, next) => {
  * @param {*} next 
  */
 const logout = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
     const { token, deviceToken } = req.body;
 
     Customers.findOne({
@@ -93,7 +104,10 @@ const logout = (req, res, next) => {
     }, (err, customer) => {
         if (err) { next(err) }
         if (!customer) {
-            return next('invalid_session');
+            return next({
+                status: 401,
+                message: 'invalid_session' 
+            });
         }
 
         SessionService.clearSession(token, (err, result) => {   

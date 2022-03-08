@@ -1,5 +1,6 @@
 const Customers = require("../models/Customers");
 const crypto  = require('crypto')
+const { validationResult } = require('express-validator');
 
 const defaultLimit = 10;
 
@@ -129,9 +130,8 @@ const getCustomer = (req, res, next) => {
 
     Customers.findOne(where, blackListColumns, (err, customer) => {
         if (err) return next(err);
-        if (!customer) {
-            return next('not_found')
-        }
+        if (!customer) return next({'message': 'not_found', status: 404});
+
         res.json(customer);
     });
 }
@@ -143,6 +143,11 @@ const getCustomer = (req, res, next) => {
  * @param {*} next 
  */
 const addCustomer = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
     let customerData      = req.body;
     customerData.password = crypto.createHash('md5')
                                 .update(process.env.PASSWORD_HASH + req.body.password)
@@ -152,9 +157,10 @@ const addCustomer = (req, res, next) => {
         res.json({success: true, message: 'added_customer'});
     })
     .catch(err => {
-        console.log('HALLO');
-        console.log(err);
-        next('customer_already_exists')
+        next({
+            messgae: 'customer_already_exists',
+            code: 400
+        })
     });
 }
 

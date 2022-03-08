@@ -13,13 +13,19 @@ const SessionService = {
         }, (err, customer) => {
             if (err) return next(err);
             if (!customer) {
-                return next('invalid_session');
+                return next({
+                    status: 401,
+                    message: 'invalid_session' 
+                });
             }
             let now = new Date();
             if (now > customer.sessionExpiryDate) {
                 this.clearSession(token, (err, result) => {
                     if (err) return next(err);
-                    return next('invalid_session');
+                    return next({
+                        status: 401,
+                        message: 'invalid_session' 
+                    });
                 })
                 .catch((err) => {
                     return next(err);
