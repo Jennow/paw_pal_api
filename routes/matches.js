@@ -2,7 +2,7 @@ const express  = require('express');
 let router     = express.Router();
 const { body } = require('express-validator');
 
-const { postMatch, getMatches, getMessages, postMessage } = require('../controller/matches');
+const { postMatch, getMatches, getMessages, postMessage, patchMatch } = require('../controller/matches');
 
 router.route('/')
     .post(
@@ -11,6 +11,12 @@ router.route('/')
         postMatch
     )
     .get(getMatches)
+
+router.route('/:matchId')
+    .patch(
+        body('status').isInt().notEmpty(),
+        patchMatch
+    )
 
 
 router.route('/:matchId/messages')

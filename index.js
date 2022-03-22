@@ -9,6 +9,7 @@ const config    = require('./config');
 const customers = require('./routes/customers');
 const oauth     = require('./routes/oauth');
 const matches   = require('./routes/matches');
+const mail      = require('./routes/mail');
 
 const connectDB = require("./models/db");
 const database  = "paw_pal"
@@ -31,6 +32,7 @@ const ignoreAuth = (req, res, next) => {
 // Only Exception -> POST customers
 app.post('/customers', ignoreAuth);
 
+app.use('/mail', bearerTokenAuth);
 app.use('/customers', bearerTokenAuth);
 app.use('/matches', bearerTokenAuth);
 
@@ -38,6 +40,7 @@ app.use('/matches', bearerTokenAuth);
 app.use('/oauth', oauth);
 app.use('/customers', customers);
 app.use('/matches', matches);
+app.use('/mail', mail);
 
 
 
@@ -100,23 +103,5 @@ app.get('/', cacheRequest(config.cacheTTL), (req, res) => {
   });
 });
 
-var cacheRequest = (duration) => {
-    return (req, res, next) => {
-        let key = '__express__' + req.originalUrl || req.url;
-        let cachedBody = memCache.get(key);
-
-        if (cachedBody) {
-            res.send(cachedBody);
-            return;
-        } else {
-            res.sendResponse = res.send;
-            res.send = (body) => {
-                memCache.put(key, body, duration * 1000);
-                res.sendResponse(body);
-            }
-            next();
-        }
-    }
-}
 
 app.listen(PORT, () => console.log(`server running on port ${PORT}`));

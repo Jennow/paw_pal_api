@@ -23,11 +23,11 @@ const getExploreCustomers = (req, res, next) =>  {
     const { last_id, limit } = req.query;
     let options              = {};
 
-    if (limit) {
-        options.limit = limit
-    } else {
-        options.limit = defaultLimit;
-    }
+    // if (limit) {
+    //     options.limit = limit
+    // } else {
+    //     options.limit = defaultLimit;
+    // }
 
     let where = {
         _id: {
@@ -106,6 +106,7 @@ const getExploreCustomers = (req, res, next) =>  {
  */
 const getCustomer = (req, res, next) => {
     const { customerId } = req.params;
+    console.log(customerId);
     const customer       = req;
     let blackListColumns = {};
 
@@ -132,7 +133,8 @@ const getCustomer = (req, res, next) => {
         if (err) return next(err);
         if (!customer) return next({'message': 'not_found', status: 404});
 
-        res.json(customer);
+        console.log(customer)
+        return res.json(customer);
     });
 }
 

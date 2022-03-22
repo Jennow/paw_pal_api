@@ -115,7 +115,8 @@ const postMatch = (req, res, next) => {
                     } else {
                         return res.json({success: true, message: 'match_updated'})
                     }
-                })
+                }
+            )
         } else {
     // If not -> Create new match with status "waiting" or "rejected" dependng on the choice of the customer
             let newStatus = action === MatchActionType.YES ? MatchStatus.WAITING : MatchStatus.INACTIVE;
@@ -148,6 +149,33 @@ const postMatch = (req, res, next) => {
             })
         }
     })
+}
+
+const patchMatch = (req,res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return next({ status:400, errors: errors.array() });
+    }
+
+    const patch = req.body;
+
+    const { customer } = req;
+    const matchId      = mongoose.Types.ObjectId(req.params.matchId);
+
+    Matches.updateOne(
+        {
+            _id: matchId,
+            customers: customer._id
+        },
+        patch,
+        {
+            upsert: true,
+            new: true,
+        }, (err, result) => {
+            if (err) { return  next(err)}
+            res.json({success: true, message: 'updated_match'});
+        }
+    );  
 }
 
 /**
@@ -255,5 +283,6 @@ module.exports = {
     postMessage,
     getMessages,
     postMatch,
-    getMatches
+    getMatches,
+    patchMatch
 };
